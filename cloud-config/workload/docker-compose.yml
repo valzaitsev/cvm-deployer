@@ -1,0 +1,109 @@
+services:
+  kbs-client:
+    image: ghcr.io/valzaitsev/custom-kbs-client-2026-08-16:2026-08-16
+    user: "${KBSCLIENT_UID:?KBSCLIENT_UID is not set}:${KBSCLIENT_GID:?KBSCLIENT_GID is not set}"
+    group_add:
+      - "${TPMRM_GID:?TPMRM_GID is not set}"
+    volumes:
+      - ./kbs.crt:/kbs.crt:ro
+      - key-exchange:/keys
+    devices:
+      - /dev/tpmrm0:/dev/tpm0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        /usr/local/bin/kbs-client --url https://${KBS_ADDRESS:?KBS_ADDRESS is not set}:8080 --cert-file /kbs.crt get-resource --path default/workload_key/1 | base64 -d > /keys/model.key &&
+        touch /keys/model.key.ready
+
+  loader:
+    build:
+      context: .
+      dockerfile: Dockerfile.loader
+    user: "root:root"
+    cap_add:
+      - SYS_ADMIN
+      - IPC_LOCK
+    device_cgroup_rules:
+      - 'b 252:* rmw'
+      - 'b 253:* rmw'
+      - 'b 254:* rmw'
+    devices:
+      - /dev/fuse:/dev/fuse
+      - /dev/mapper/control:/dev/mapper/control
+      - /dev/loop-control:/dev/loop-control
+      - /dev/loop0:/dev/loop0
+      - /dev/loop1:/dev/loop1
+      - /dev/loop2:/dev/loop2
+      - /dev/loop3:/dev/loop3
+      - /dev/loop4:/dev/loop4
+      - /dev/loop5:/dev/loop5
+    security_opt:
+      - apparmor:unconfined
+      - seccomp:unconfined
+    depends_on:
+      kbs-client:
+        condition: service_started
+    volumes:
+      - ./loader.sh:/loader.sh:ro
+      - ./blobfuse2-config.yml:/blobfuse2-config.yml:ro
+      - key-exchange:/keys
+      - ram-cache:/mnt/secure_tmp
+    environment:
+      - VLLM_UID=${VLLM_UID}
+      - VLLM_GID=${VLLM_GID}
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_ACCOUNT_CONTAINER=${AZURE_STORAGE_ACCOUNT_CONTAINER}
+      - IMAGE_NAME=${IMAGE_NAME}
+    command: ["/bin/bash", "/loader.sh"]
+
+  vllm-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
+      args:
+        - VLLM_UID=${VLLM_UID}
+        - VLLM_GID=${VLLM_GID}
+    user: "${VLLM_UID:?VLLM_UID is not set}:${VLLM_GID:?VLLM_GID is not set}"
+    depends_on:
+      loader:
+        condition: service_started
+    volumes:
+      - ram-cache:/mnt/secure_tmp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ports:
+      - "8000:8000"
+    ipc: host
+    environment:
+      - MODEL_NAME=${MODEL_NAME:?MODEL_NAME is not set}
+      - PORT=8000
+      - HOME=/mnt/secure_tmp
+      - XDG_CACHE_HOME=/mnt/secure_tmp/.cache
+      - FLASHINFER_WORKSPACE_DIR=/mnt/secure_tmp/flashinfer
+      - TRITON_CACHE_DIR=/mnt/secure_tmp/triton
+      - HF_HOME=/mnt/secure_tmp/hf
+      - NVIDIA_CONFIDENTIAL_COMPUTE=1
+
+volumes:
+  key-exchange:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=10M,uid=${KBSCLIENT_UID:?KBSCLIENT_UID is not set},gid=${KBSCLIENT_GID:?KBSCLIENT_GID is not set}"
+  ram-cache:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=${SECURE_TMPFS_SIZE:?SECURE_TMPFS_SIZE is not set},uid=${VLLM_UID:?VLLM_UID is not set},gid=${VLLM_GID:?VLLM_GID is not set}"

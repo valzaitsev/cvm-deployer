@@ -1,0 +1,25 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -qq && \
+    apt-get install -y -qq \
+        cryptsetup \
+        gnupg \
+        lsb-release \
+        ca-certificates \
+        fuse3 \
+        rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY microsoft.asc /tmp/microsoft.asc
+
+RUN mkdir -p /etc/apt/keyrings \
+    && gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg /tmp/microsoft.asc \
+    && rm /tmp/microsoft.asc
+
+RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" > /etc/apt/sources.list.d/microsoft-prod.list
+
+RUN apt-get update && apt-get install -y \
+    blobfuse2 \
+    && rm -rf /var/lib/apt/lists/*

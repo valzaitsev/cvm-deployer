@@ -1,0 +1,26 @@
+services:
+  vault:
+    image: hashicorp/vault:2.0.4
+    container_name: vault
+    user: "${CONTAINER_UID:?CONTAINER_UID is not set}:${CONTAINER_GID:?CONTAINER_GID is not set}"
+    restart: unless-stopped
+    environment:
+      - VAULT_ADDR=https://127.0.0.1:8200
+      - VAULT_CACERT=/vault/certs/ca.crt
+      - VAULT_API_ADDR=https://127.0.0.1:8200
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    command: vault server -config=/vault/config/vault.hcl
+    volumes:
+      - ./vault.hcl:/vault/config/vault.hcl:ro
+      - ./vault-trustee-policy.hcl:/vault/config/vault-trustee-policy.hcl:ro
+      - ./vault.crt:/vault/certs/vault.crt:ro
+      - ./vault.key:/vault/certs/vault.key:ro
+      - ./ca.crt:/vault/certs/ca.crt:ro
+      - ./data:/vault/file
+networks:
+  default:
+    name: cc-shared-net
+    external: true

@@ -1,0 +1,11 @@
+FROM vllm/vllm-openai:v0.27.1
+
+ARG VLLM_UID
+ARG VLLM_GID
+
+COPY --chown=${VLLM_UID}:${VLLM_GID} entrypoint.sh /entrypoint.sh
+
+USER root
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,134 @@
+#cloud-config
+apt:
+  sources:
+    azure-cli:
+      source: "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.asc] https://packages.microsoft.com/repos/azure-cli/ $RELEASE main"
+    nvidia-container-toolkit:
+      source: "deb [arch=amd64 signed-by=/etc/apt/keyrings/nvidia.asc] https://nvidia.github.io/libnvidia-container/stable/deb/amd64 /"
+
+packages:
+  - mc
+  - jq
+  - docker.io
+  - docker-compose-v2
+  - azure-cli
+  - linux-modules-nvidia-580-server-open-azure-fde
+  - nvidia-driver-580-server-open
+  - nvidia-modprobe
+  - nvidia-container-toolkit
+
+users:
+  - default
+  - name: kbsclient
+    system: true
+    shell: /bin/nologin
+  - name: vllm
+    system: true
+    shell: /bin/nologin    
+
+write_files:
+  - path: /etc/apt/keyrings/microsoft.asc
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/microsoft.asc"))}
+
+  - path: /etc/apt/keyrings/nvidia.asc
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/nvidia.asc"))}
+
+  - path: /opt/cvm_workload/workload_bootstrap.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/workload_bootstrap.sh"))}
+
+  - path: /opt/cvm_workload/docker-compose.yml
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/docker-compose.yml"))}
+
+  - path: /opt/cvm_workload/Dockerfile.vllm
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/Dockerfile.vllm"))}
+
+  - path: /opt/cvm_workload/entrypoint.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/entrypoint.sh"))}
+
+  - path: /opt/cvm_workload/Dockerfile.loader
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/Dockerfile.loader"))}
+
+  - path: /opt/cvm_workload/loader.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/loader.sh"))}
+
+  - path: /etc/systemd/system/cvm-workload.service
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/cvm-workload.service"))}
+
+  - path: /opt/cvm_workload/blobfuse2-config.yml
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/blobfuse2-config.yml"))}
+
+  - path: /opt/cvm_workload/chat.py
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/chat.py"))}    
+
+  - path: /opt/cvm_workload/chat2.py
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/chat2.py"))}  
+
+  - path: /etc/needrestart/conf.d/99-skip-nvidia-persistenced.conf
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/needrestart-nvidia-persistenced.conf"))}
+
+  - path: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/workload/nvidia-persistenced.service.override.conf"))}
+
+runcmd:
+  - 'nvidia-ctk runtime configure --runtime=docker'
+  - 'systemctl daemon-reload'
+  - 'systemctl restart docker'
+  - 'echo "${ghcr_token}" | docker login ghcr.io -u "${ghcr_username}" --password-stdin'  
+  - > 
+    HOME=/root
+    KEYVAULT_NAME="${keyvault_name}"
+    CERT_NAME="${cert_name}"
+    KBS_ADDRESS="${kbs_address}"
+    SECURE_TMPFS_SIZE="${secure_tmp_partition_size}"
+    STORAGE_ACCOUNT_NAME="${storage_account_name}"
+    STORAGE_CONTAINER_NAME="${storage_container_name}"
+    IMAGE_NAME="${encrypted_image_name}"
+    MODEL_NAME="${model_name}"
+    /opt/cvm_workload/workload_bootstrap.sh
+
+power_state:
+  mode: reboot
+  timeout: 15
+  condition: True

@@ -1,0 +1,109 @@
+#cloud-config
+apt:
+  sources:
+    azure-cli:
+      source: "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.asc] https://packages.microsoft.com/repos/azure-cli/ $RELEASE main"
+
+packages:
+  - mc
+  - jq
+  - docker.io
+  - docker-compose-v2
+  - azure-cli
+
+users:
+  - default
+  - name: trustee
+    system: true
+    shell: /bin/nologin    
+  - name: vault
+    system: true
+    shell: /bin/nologin
+
+write_files:
+  - path: /etc/apt/keyrings/microsoft.asc
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/microsoft.asc"))}
+
+  - path: /etc/systemd/system/trustee-kbs.service
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/trustee-kbs.service"))}
+
+  - path: /opt/trustee-kbs/docker-compose.yml
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/docker-compose.yml"))}        
+
+  - path: /opt/trustee-kbs/kbs-config.toml
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/kbs-config.toml"))}
+
+  - path: /opt/trustee-kbs/policy.rego
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/policy.rego"))}
+
+  - path: /opt/trustee-kbs/default_cpu.rego
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/default_cpu.rego"))}
+
+  - path: /opt/trustee-kbs/kbs_bootstrap.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/kbs/kbs_bootstrap.sh"))}
+
+  - path: /opt/vault/docker-compose.yml
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/docker-compose.yml"))}
+
+  - path: /opt/vault/vault_bootstrap.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/vault_bootstrap.sh"))}
+
+  - path: /opt/vault/unseal.sh
+    owner: root:root
+    permissions: '0700'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/unseal.sh"))}
+
+  - path: /etc/systemd/system/vault.service
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/vault.service"))}
+
+  - path: /opt/vault/vault.hcl
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/vault.hcl"))}
+
+  - path: /opt/vault/vault-trustee-policy.hcl
+    owner: root:root
+    permissions: '0640'
+    encoding: b64
+    content: ${base64encode(file("${module_path}/cloud-config/vault/vault-trustee-policy.hcl"))}
+
+runcmd:
+  - 'usermod -aG docker trustee'
+  - 'usermod -aG docker vault'
+  - 'docker network create cc-shared-net'
+  - 'echo "${ghcr_token}" | docker login ghcr.io -u "${ghcr_username}" --password-stdin'
+  # Passing the WORKLOAD KEY to Vault bootstrap script
+  - [ sh, -c, 'WORKLOAD_KEY="${workload_key}" /opt/vault/vault_bootstrap.sh' ]
+  - [ sh, -c, 'HOME=/root KEYVAULT_NAME="${keyvault_name}" CERT_NAME="${cert_name}" /opt/trustee-kbs/kbs_bootstrap.sh' ]

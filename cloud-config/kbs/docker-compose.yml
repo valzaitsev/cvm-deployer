@@ -1,0 +1,28 @@
+services:
+  kbs:
+    #image: ghcr.io/confidential-containers/staged-images/kbs:latest
+    image: ghcr.io/valzaitsev/custom-kbs-2026-08-16:patched-2026-08-16
+    container_name: trustee-kbs
+    user: "${CONTAINER_UID:?CONTAINER_UID is not set}:${CONTAINER_GID:?CONTAINER_GID is not set}"
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:        
+      - "RUST_LOG=trace,actix_http::h1=error"
+    volumes:
+      - ./kbs-config.toml:/etc/kbs-config.toml:ro
+      - ./policy.rego:/opt/kbs/repository/kbs/resource-policy.rego:ro
+      - ./default_cpu.rego:/opt/kbs/repository/attestation_service_policy/default_cpu.rego:ro
+      - ./kbs.key:/etc/kbs.key:ro
+      - ./kbs.crt:/etc/kbs.crt:ro
+      - ./ca.crt:/etc/ca.crt:ro
+      - ./token_signer.crt:/etc/token_signer.crt:ro
+      - ./token_signer.key:/etc/token_signer.key:ro
+      - ./token_signer_chain.crt:/etc/token_signer_chain.crt:ro
+      - ./vault-ca.crt:/etc/vault-ca.crt:ro
+      - ./repository:/opt/kbs/repository
+    command: /usr/local/bin/kbs --config-file /etc/kbs-config.toml
+networks:
+  default:
+    name: cc-shared-net
+    external: true

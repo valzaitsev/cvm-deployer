@@ -1,0 +1,17 @@
+[Unit]
+Description=Confidential AI Workload Container Service
+Requires=docker.service nvidia-persistenced.service
+After=docker.service network-online.target nvidia-persistenced.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/cvm_workload
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose restart
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

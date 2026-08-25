@@ -1,0 +1,40 @@
+[http_server]
+sockets = ["0.0.0.0:8080"]
+private_key = "/etc/kbs.key"
+certificate = "/etc/kbs.crt"
+
+[attestation_token]
+trusted_certs_paths = ["/etc/ca.crt"]
+insecure_header_jwk = false
+
+[admin]
+#authorization_mode = "InsecureAllowAll"
+authorization_mode = "DenyAll"
+
+[storage_backend]
+storage_type = "LocalFs"
+
+[storage_backend.backends.local_fs]
+dir_path = "/opt/kbs/repository"
+
+[[plugins]]
+name = "resource"
+storage_backend_type = "Vault"
+vault_url = "https://vault:8200"
+token = "VAULT_TOKEN_PLACEHOLDER"
+mount_path = "secret-v1"
+verify_ssl = true
+ca_certs = ["/etc/vault-ca.crt"]
+
+[attestation_service.attestation_token_broker.signer]
+key_path = "/etc/token_signer.key"
+cert_path = "/etc/token_signer_chain.crt"
+
+[attestation_service.verifier_config.nvidia_verifier]
+type = "Remote"
+
+[attestation_service]
+type = "coco_as_builtin"
+
+[attestation_service.rvps_config]
+type = "BuiltIn"
