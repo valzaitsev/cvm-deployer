@@ -13,7 +13,7 @@ This project demonstrates a zero-trust architecture for AI inference. By leverag
 
 ## Architecture Overview
 
-> **Note:** *[TODO: link to architecture diagram here]*
+![Azure Confidential VM Architecture](./docs/cvm-architecture.png)
 
 This Proof of Concept (PoC) provisions two primary environments via Terraform:
 
@@ -122,7 +122,7 @@ Currently, the Trustee KBS and HashiCorp Vault are deployed in a secondary Azure
 * **Threat:** If a sophisticated threat actor compromises the cloud provider's control plane or networking layer, hosting both the key broker and the compute workload in the same cloud environment increases the blast radius.
 * **Solution:** The Trustee KBS service and HashiCorp Vault Docker containers will be deployed on separate **on-prem** servers in the Enterprise network to ensure segregation of duties with the cloud provider and maintain data sovereignty by retaining physical control of the AI model encryption key.
 
-### 3. General Infrastructure Hardening
+### 4. General Infrastructure Hardening
 To transition the Terraform codebase from a PoC to a production-ready module, the following configurations will be updated:
 * **Secret Management for cloud artefacts downloads:** Move the GitHub Container Registry (GHCR) token and initial workload keys out of Terraform variables/cloud-init and into a pre-provisioned Azure Key Vault.
 * **Network Security:** Remove the wildcard SSH ingress rules (`*` to port `22`) on the Network Security Groups. In production, access will be routed through Azure Bastion or limited to a VPN.
