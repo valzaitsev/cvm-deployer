@@ -14,7 +14,7 @@ resource "azurerm_storage_account" "cvm_poc_storage" {
 
 # Create a private Blob Container inside the Storage Account
 resource "azurerm_storage_container" "cvm_poc_models_container" {
-  name                  = "models"
+  name                  = var.azure_storage_container_name
   storage_account_id  = azurerm_storage_account.cvm_poc_storage.id
   container_access_type = "private"
 }

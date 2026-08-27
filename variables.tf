@@ -23,9 +23,14 @@ variable "workload_model_name" {
   default = "Qwen/Qwen3.8-27B"
 }
 
+variable "azure_storage_container_name" {
+  type = string
+  default = "models"
+}
+
 variable "encrypted_image_name" {
   type = string
-  default = "model2.img"
+  default = "model.img"
 }
 
 # POC - not needed. Nvidia allows requests without it for testing.
