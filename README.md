@@ -69,7 +69,13 @@ Before deploying this infrastructure, ensure you have the following:
 ## 🚀 Deployment Guide
 
 ### 1. Prepare and Upload the Encrypted AI Model Data
-_TODO: define the steps and provide the script to download the model from HF, encrypt it, and upload the resulting file to Azure BLOB storage._
+ 1. Use [download_model.sh](scripts/download_model.sh) script to download and encrypt an open weights model from huggingface.
+ 2. Proceed with the steps from the sections below to deploy an Azure Storage Account via the `terraform apply`, then return here.
+ 3. Open Azure web interface.
+ 4. Navigate to `cvm_poc_rg` resource group -> `cvmpocstoreXXXXXXXX` Storage account -> Storage browser -> Blob containers -> Click on your `models` container -> Upload.
+ 5. Upload the encrypted model image prepared in step 1.
+
+ _Note: Alternatively, you can use an `Azure CLI` or `azcopy` commands to upload the encrypted image to your Azure storage account._
 
 ### 2. Clone the Repository
 
