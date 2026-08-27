@@ -25,16 +25,20 @@ This Proof of Concept (PoC) provisions two primary environments via Terraform:
      - Local storage: 30 GiB for OS disk. Protected by server-side disk encryption with customer-managed, HSM-backed keys with Secure Key Release policy.
      - OS: Ubuntu 22.04 LTS. Official Azure Confidential VM image by Canonical
    - 2 Docker containers:
-     - Trustee KBS - for standalone Key Broker Service and Attestation Service
-     - HashiCorp Vault - for local secret storage
+     - **Trustee KBS** - for standalone Key Broker Service and Attestation Service, utilizing the NVIDIA Remote Attestation Service to verify the evidence received from GPU.
+     - **HashiCorp Vault** - for local secret storage
 2. **Confidential AI Workload CVM:** A GPU-accelerated node running a custom vLLM container. It undergoes CPU and GPU attestation, requests a Secure Key Release of the AI model decryption key, and loads the LUKS-encrypted model into a secure RAM disk.
-  - Azure Confidential GPU VM with NVIDIA GPU in Confidential Compute mode and AMD SEV-SNP enabled CPU:
-    - Azure VM size: Standard_NCC40ads_H100_v5
-    - CPU: 40 vCPUs - AMD EPYC 9V84 (Genoa)
-    - GPU: NVIDIA H100 NVL with 94 GB VRAM
-    - RAM: 320 GiB
-    - Local storage: 100 GiB for OS disk. Protected by server-side disk encryption with customer-managed, HSM-backed keys with Secure Key Release policy.
-    - OS: Ubuntu 22.04 LTS. Official Azure Confidential VM image by Canonical
+    - Azure Confidential GPU VM with NVIDIA GPU in Confidential Compute mode and AMD SEV-SNP enabled CPU:
+      - Azure VM size: Standard_NCC40ads_H100_v5
+      - CPU: 40 vCPUs - AMD EPYC 9V84 (Genoa)
+      - GPU: NVIDIA H100 NVL with 94 GB VRAM
+      - RAM: 320 GiB
+      - Local storage: 100 GiB for OS disk. Protected by server-side disk encryption with customer-managed, HSM-backed keys with Secure Key Release policy.
+      - OS: Ubuntu 22.04 LTS. Official Azure Confidential VM image by Canonical
+    - 3 Docker containers:
+      - **KBS Client** - securely utilizes a vTPM and NVIDIA GPU attestation SDK to submit a CPU and GPU evidence bound to the Root of Trust originating in AMD and NVIDIA hardware to a KBS Server and Attestation Service via the Request - Challenge - Attestation - Response (RCAR) sequence, and to invoke a Secure Key Release (SKR) of the Workload Encryption Key.
+      - **Loader** - receives the Workload Encryption Key from the **KBS Client** via a shared ephemeral `tmpfs` volume, mounts the encrypted `LUKS` image file stored in Azure Storage containing the AI model weights, copies the AI model weights data from the encrypted volume to the secured RAM volume inside the TEE of the CVM, and unmounts the encrypted volume.
+      - **vLLM** - starts the vLLM inference service.
 
 
 ### Key Components
@@ -64,27 +68,47 @@ Before deploying this infrastructure, ensure you have the following:
 
 ## 🚀 Deployment Guide
 
-### 1. Clone the Repository
+### 1. Prepare and Upload the Encrypted AI Model Data
+_TODO: define the steps and provide the script to download the model from HF, encrypt it, and upload the resulting file to Azure BLOB storage._
+
+### 2. Clone the Repository
 
     git clone https://github.com/valzaitsev/cvm-deployer.git
     cd cvm-deployer
 
-### 2. Configure Variables
+### 3. Configure Variables
 Create a `terraform.tfvars` file to securely pass your credentials and specific configurations:
 
+    cvm_poc_admin_username = "your_admin_username_for_VMs"
+    cvm_poc_admin_ssh_pubkey_path = "~/.ssh/your_ssh_public_key.pub"
+
+    # Github credentials to download custom docker containers for patched Trustee KBS server and precompiled KBS Client with built-in NVIDIA SDK
+    # TODO: make them public and available, and eliminate these variables
     ghcr_username = "your_github_username"
     ghcr_token    = "ghp_your_personal_access_token"
-    workload_key  = "your_super_secret_luks_key"
 
-### 3. Initialize and Apply
+    # Top-level directory name in Azure Storage Account, e.g. "models"
+    azure_storage_container_name = "your_container_name_for_models"
+    
+    # File name with encrypted LUKS volume, e.g. "model.img"
+    encrypted_image_name = "your_encrypted_model_image.img"         
+
+    # POC-only: secret key to be injected into the Vault
+    workload_key  = "your_super_secret_luks_key" 
+
+    # Model name to serve in vLLM
+    workload_model_name = "Qwen/Qwen3.8-27B"
+
+### 4. Initialize and Apply
 
     terraform init
     terraform plan -out=tfplan
     terraform apply tfplan
 
-Terraform deployment takes 5-10 minutes or more due to Key Vault RBAC propagation and Confidential VM creation and boot times.
-After boot the cloud configuration scripts in VMs and deployment of docker images take additional 10-15 minutes.
-Encrypted AI model is downloaded from Azure Blob storage, that takes another 10-15 minutes.
+Execution times:
+- Terraform deployment including the Key Vault RBAC propagation and Confidential VM creation and first start up: ~5-10 minutes.
+- Cloud configuration (`cloud-init`) scripts in VMs, GPU drivers installation and configuration, and deployment of docker images: ~10-15 minutes.
+- Encrypted AI model download from Azure Blob storage: ~10-15 minutes.
 
 ---
 
@@ -124,7 +148,7 @@ Currently, the Trustee KBS and HashiCorp Vault are deployed in a secondary Azure
 
 ### 4. General Infrastructure Hardening
 To transition the Terraform codebase from a PoC to a production-ready module, the following configurations will be updated:
-* **Secret Management for cloud artefacts downloads:** Move the GitHub Container Registry (GHCR) token and initial workload keys out of Terraform variables/cloud-init and into a pre-provisioned Azure Key Vault.
+* **Secret Management for cloud artifacts downloads:** Move the GitHub Container Registry (GHCR) token and initial workload keys out of Terraform variables/cloud-init and into a pre-provisioned Azure Key Vault.
 * **Network Security:** Remove the wildcard SSH ingress rules (`*` to port `22`) on the Network Security Groups. In production, access will be routed through Azure Bastion or limited to a VPN.
 * **Key Vault Policies:** Re-enable purge protection on the Key Vaults (disabled in the PoC) to protect against accidental or malicious key deletion.
 
