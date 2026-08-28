@@ -1,0 +1,84 @@
+#Builder container
+FROM ubuntu:22.04 AS builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    cmake \
+    git \
+    pkg-config \
+    clang \
+    libssl-dev \
+    libtss2-dev \
+    libcurl4-openssl-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libxmlsec1-openssl \
+    libspdlog-dev \
+    zlib1g-dev \
+    build-essential
+
+# Install the Rust compiler via rustup
+# Pin the version 1.97.1
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.97.1
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /workspace
+
+# Clone and compile the NVIDIA C++ Attestation SDK
+# Pin to commit 73efa3a - 8/15/2026
+RUN git clone https://github.com/NVIDIA/attestation-sdk.git && \
+    cd attestation-sdk && \
+    git checkout 73efa3a
+
+WORKDIR /workspace/attestation-sdk/nv-attestation-sdk-cpp
+
+RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
+    cmake --install build && \
+    ldconfig
+
+# Clone TRUSTEE and build the kbs-client
+# Pin to commit 6b7b22e - 8-16-2026
+WORKDIR /workspace
+RUN git clone https://github.com/confidential-containers/trustee.git && \
+    cd trustee && \
+    git checkout 6b7b22e
+
+WORKDIR /workspace/trustee
+
+# Tell the NVIDIA Rust build script to use the C++ library
+ENV NVAT_USE_SYSTEM_LIB=1
+
+ENV LIBRARY_PATH="/usr/local/lib:${LIBRARY_PATH}"
+RUN ln -s /usr/local/include/nvat.h /usr/include/nvat.h
+
+# Compile the kbs client with Azure AMD SEV-SNP + vTPM attester and Nvidia GPU attester modules
+RUN cargo build -p kbs-client --release --features az-snp-vtpm-attester,nvidia-attester
+
+
+# Runtime container
+FROM ubuntu:22.04
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    libcurl4 \
+    libxml2 \
+    libxmlsec1 \
+    libxmlsec1-openssl \
+    libtss2-esys-3.0.2-0 \
+    libtss2-sys1 \
+    libtss2-mu0 \
+    libtss2-tctildr0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the compiled NVIDIA dynamic libraries and run ldconfig
+COPY --from=builder /usr/local/lib/libnvat* /usr/local/lib/
+RUN ldconfig
+
+# Copy the compiled binary
+COPY --from=builder /workspace/trustee/target/release/kbs-client /usr/local/bin/kbs-client
+
+ENTRYPOINT ["/usr/local/bin/kbs-client"]

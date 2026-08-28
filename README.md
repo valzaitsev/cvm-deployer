@@ -61,7 +61,6 @@ Before deploying this infrastructure, ensure you have the following:
 * **Azure Subscription:** With quota approved for `Standard_NCC40ads_H100_v5` and `Standard_DC2as_v6` instances (Central US region recommended for availability).
 * **Azure CLI:** Authenticated (`az login`) with permissions to create Resource Groups, Key Vaults, Role Assignments, and Managed Identities.
 * **Terraform:** Installed locally (v1.5+).
-* **GitHub Container Registry (GHCR):** A Personal Access Token (PAT) with `read:packages` scope to pull the custom KBS and client images.
 * **SSH Key Pair:** SSH public key available at path specified in `cvm_poc_admin_ssh_pubkey_path` of `variables.tf` file (or create/modify `terraform.tfvars`).
 
 ---
