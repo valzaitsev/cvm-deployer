@@ -91,8 +91,6 @@ resource "azurerm_linux_virtual_machine" "cvm_poc_kbs_vm" {
 locals {
   kbs_vm_init_yaml = templatefile("${path.module}/cloud-config/cloud-config-kbs.yaml.tftpl", {
     module_path = path.module
-    ghcr_username = var.ghcr_username
-    ghcr_token    = var.ghcr_token
     workload_key  = var.workload_key
     keyvault_name = azurerm_key_vault.cvm_poc_keyvault_workload.name
     cert_name = azurerm_key_vault_secret.cvm_poc_kbs_cert.name    

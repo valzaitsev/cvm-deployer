@@ -115,7 +115,6 @@ runcmd:
   - 'nvidia-ctk runtime configure --runtime=docker'
   - 'systemctl daemon-reload'
   - 'systemctl restart docker'
-  - 'echo "${ghcr_token}" | docker login ghcr.io -u "${ghcr_username}" --password-stdin'  
   - > 
     HOME=/root
     KEYVAULT_NAME="${keyvault_name}"

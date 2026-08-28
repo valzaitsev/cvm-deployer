@@ -103,7 +103,6 @@ runcmd:
   - 'usermod -aG docker trustee'
   - 'usermod -aG docker vault'
   - 'docker network create cc-shared-net'
-  - 'echo "${ghcr_token}" | docker login ghcr.io -u "${ghcr_username}" --password-stdin'
   # Passing the WORKLOAD KEY to Vault bootstrap script
   - [ sh, -c, 'WORKLOAD_KEY="${workload_key}" /opt/vault/vault_bootstrap.sh' ]
   - [ sh, -c, 'HOME=/root KEYVAULT_NAME="${keyvault_name}" CERT_NAME="${cert_name}" /opt/trustee-kbs/kbs_bootstrap.sh' ]

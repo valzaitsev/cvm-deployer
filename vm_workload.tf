@@ -104,8 +104,6 @@ resource "azurerm_linux_virtual_machine" "cvm_poc_vm" {
 locals {
   workload_vm_init_yaml = templatefile("${path.module}/cloud-config/cloud-config-workload.yaml.tftpl", {
     module_path = path.module
-    ghcr_username = var.ghcr_username
-    ghcr_token    = var.ghcr_token
     keyvault_name = azurerm_key_vault.cvm_poc_keyvault_workload.name
     cert_name = azurerm_key_vault_secret.cvm_poc_kbs_cert.name
     kbs_address = azurerm_network_interface.cvm_poc_kbs_nic.private_ip_address

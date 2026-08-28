@@ -41,20 +41,6 @@ variable "encrypted_image_name" {
 #  sensitive = true
 #}
 
-variable "ghcr_username" {
-  type        = string
-  description = "GitHub username for GHCR login"
-}
-
-# POC only
-# GHCR token will be exposed to VM via cloud-init and logged in user-data.txt
-# For production: move to Azure Key Vault
-variable "ghcr_token" {
-  type        = string
-  sensitive   = true
-  description = "GitHub Personal Access Token (PAT) with read:packages scope"
-}
-
 # POC only:
 # Workload key injection into the HashiCorp Vault
 # Key will be exposed to VM via cloud-init and logged in user-data.txt

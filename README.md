@@ -88,11 +88,6 @@ Create a `terraform.tfvars` file to securely pass your credentials and specific 
     cvm_poc_admin_username = "your_admin_username_for_VMs"
     cvm_poc_admin_ssh_pubkey_path = "~/.ssh/your_ssh_public_key.pub"
 
-    # Github credentials to download custom docker containers for patched Trustee KBS server and precompiled KBS Client with built-in NVIDIA SDK
-    # TODO: make them public and available, and eliminate these variables
-    ghcr_username = "your_github_username"
-    ghcr_token    = "ghp_your_personal_access_token"
-
     # Top-level directory name in Azure Storage Account, e.g. "models"
     azure_storage_container_name = "your_container_name_for_models"
     
